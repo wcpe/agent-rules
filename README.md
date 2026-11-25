@@ -25,6 +25,7 @@
 | forbidden-in-repo.md | 禁止入库清单（过程文档/证据/二进制/密钥/路径/AI 署名/绕过手段） |
 | testing-and-assertions.md | 测试哲学、强断言禁令、客户端/服务端角色分离、视觉依赖降级 |
 | evidence-discipline.md | 验收证据形态（分段+标注+直展）、证据不入库、可复跑自动化 |
+| batch-operation-scope.md | 跨仓批量操作范围红线（先列清单确认/fork+公开仓默认不入/事故冻结上报） |
 | doc-sync.md | 文档演进（PRD/ARCHITECTURE/ADR）、防漂移、注释语言 |
 
 ## 三端安装
