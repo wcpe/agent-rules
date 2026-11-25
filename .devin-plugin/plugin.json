@@ -1,0 +1,9 @@
+{
+  "name": "agent-rules",
+  "version": "1.0.0",
+  "description": "通用开发规则（跨仓库）：git 提交规范、PR 工作流、PR 生命周期、禁止入库清单、测试断言纪律、证据纪律、文档同步。rules/ 目录 always-on 注入。",
+  "author": { "name": "wcpe" },
+  "homepage": "https://github.com/wcpe/agent-rules",
+  "repository": "https://github.com/wcpe/agent-rules",
+  "keywords": ["rules", "git", "pr", "testing", "evidence"]
+}

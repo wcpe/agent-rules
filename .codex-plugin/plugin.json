@@ -1,0 +1,14 @@
+{
+  "name": "agent-rules",
+  "version": "1.0.0",
+  "description": "通用开发规则（跨仓库）：git 提交规范、PR 工作流、禁止入库清单、测试断言纪律、证据纪律、文档同步。规则本体经 sync.sh 嵌入 AGENTS.md。",
+  "author": { "name": "wcpe" },
+  "homepage": "https://github.com/wcpe/agent-rules",
+  "repository": "https://github.com/wcpe/agent-rules",
+  "interface": {
+    "displayName": "Agent Rules",
+    "shortDescription": "通用开发规则：提交/PR/禁入库/断言/证据纪律。",
+    "developerName": "wcpe",
+    "category": "Developer Tools"
+  }
+}
