@@ -1,3 +1,7 @@
+---
+trigger: always_on
+---
+
 # 禁反射规则（Java/Kotlin 项目通用，适用于所有仓库）
 
 ## 硬规则
