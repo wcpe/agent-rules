@@ -45,7 +45,7 @@ test('rules/ 下所有规则文件均带合法 YAML frontmatter 且单文件不�
   }
 });
 
-test('Antigravity PreToolUse 拦截禁止入库文件时返回 exit 0 + decision:deny，合规命令放行返回 {}', () => {
+test('Antigravity PreToolUse 拦截禁止入库文件时返回 exit 0 + decision:deny，合规命令返回 decision:allow', () => {
   const dir = mkdtempSync(path.join(tmpdir(), 'ar-agy-'));
   try {
     execFileSync('git', ['init', '-q'], { cwd: dir, stdio: 'ignore' });
@@ -58,6 +58,21 @@ test('Antigravity PreToolUse 拦截禁止入库文件时返回 exit 0 + decision
     });
     assert.equal(blockAdd.status, 0, 'Antigravity hook 阻断时必须返回 exit 0');
     assert.equal(JSON.parse(blockAdd.stdout).decision, 'deny');
+
+    const blockChained = runHook({
+      toolCall: { name: 'run_command', args: { CommandLine: 'git add README.md && git add PLAN.md && git commit -m "chore: x"', Cwd: dir } },
+      workspacePaths: [dir],
+    });
+    assert.equal(blockChained.status, 0);
+    assert.equal(JSON.parse(blockChained.stdout).decision, 'deny', '链式 git add 后续禁止文件必须拦截');
+
+    writeFileSync(path.join(dir, '需求.md'), '# 临时需求\n');
+    const blockChinese = runHook({
+      toolCall: { name: 'run_command', args: { CommandLine: 'git add .', Cwd: dir } },
+      workspacePaths: [dir],
+    });
+    assert.equal(blockChinese.status, 0);
+    assert.equal(JSON.parse(blockChinese.stdout).decision, 'deny', '中文过程文档不得因 quotepath 转义漏检');
 
     execFileSync('git', ['add', 'PLAN.md'], { cwd: dir, stdio: 'ignore' });
     const blockCommit = runHook({
@@ -74,9 +89,28 @@ test('Antigravity PreToolUse 拦截禁止入库文件时返回 exit 0 + decision
       workspacePaths: [dir],
     });
     assert.equal(allowCommit.status, 0);
-    assert.deepEqual(JSON.parse(allowCommit.stdout), {});
+    assert.deepEqual(JSON.parse(allowCommit.stdout), { decision: 'allow' });
   } finally {
     rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('sync.sh --antigravity 拒绝删除已存在的非软链插件目录', () => {
+  const fakeHome = mkdtempSync(path.join(tmpdir(), 'ar-home-'));
+  try {
+    const existingDir = path.join(fakeHome, '.gemini', 'config', 'plugins', 'agent-rules');
+    execFileSync('mkdir', ['-p', existingDir]);
+    writeFileSync(path.join(existingDir, 'local-edit.txt'), 'keep me\n');
+
+    const r = spawnSync('bash', [path.join(repoRoot, 'sync.sh'), '--antigravity'], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+      env: { PATH: process.env.PATH, HOME: fakeHome },
+    });
+    assert.notEqual(r.status, 0, '非软链目录不得被强制删除');
+    assert.equal(readFileSync(path.join(existingDir, 'local-edit.txt'), 'utf8'), 'keep me\n');
+  } finally {
+    rmSync(fakeHome, { recursive: true, force: true });
   }
 });
 

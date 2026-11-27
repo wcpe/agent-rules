@@ -27,66 +27,82 @@ const unquote = s => String(s || '').replace(/^["']|["']$/g, '')
 
 readStdin(function (input) {
   const isAntigravity = process.env.AGENT_HOOK_HOST === 'antigravity' || Boolean(input.toolCall)
+  const writeAndExit = function (payload, code) {
+    process.stdout.write(payload, function () { process.exit(code) })
+  }
   const allow = function () {
-    if (isAntigravity) console.log('{}')
+    if (isAntigravity) {
+      writeAndExit(JSON.stringify({ decision: 'allow' }) + '\n', 0)
+      return
+    }
     process.exit(0)
   }
   const block = function (why, file) {
     const reason = '[agent-rules 提交门] ' + why + '：' + file + '\n规则见 rules/forbidden-in-repo.md。过程材料放 .tmp/ 或库外。'
     if (isAntigravity) {
       // Antigravity 要求退出码为 0 并通过 stdout JSON 返回 decision: deny；非 0 会被当作 hook 异常而 fail-open
-      console.log(JSON.stringify({ decision: 'deny', reason: reason }))
-      process.exit(0)
+      writeAndExit(JSON.stringify({ decision: 'deny', reason: reason }) + '\n', 0)
+      return
     }
-    console.log(JSON.stringify({ decision: 'block', reason: reason }))
     console.error(reason)
-    process.exit(2)
+    writeAndExit(JSON.stringify({ decision: 'block', reason: reason }) + '\n', 2)
   }
 
   try {
     const ti = (input.toolCall && input.toolCall.args) || input.tool_input || {}
     const cmd = String(ti.CommandLine || ti.command || '')
-    if (!/\bgit\s+(?:-C\s+(?:"[^"]+"|'[^']+'|[^\s;&|]+)\s+)?(add|commit)\b/.test(cmd)) allow()
+    const ARG = '("[^"]+"|\'[^\']+\'|[^\\s;&|]+)'
+    const gitAnyRe = new RegExp('\\bgit\\s+(?:-C\\s+' + ARG + '\\s+)?(add|commit)\\b')
+    if (!gitAnyRe.test(cmd)) return allow()
 
     let base = String(
       ti.Cwd || ti.workdir || ti.cwd || input.cwd ||
       (Array.isArray(input.workspacePaths) && input.workspacePaths[0]) ||
       process.cwd()
     )
-    const cd = cmd.match(/^\s*cd\s+("[^"]+"|'[^']+'|[^\s;&|]+)\s*&&/)
-    if (cd) base = path.resolve(base, unquote(cd[1]))
 
-    // 提取 git add 的文件参数
-    const m = cmd.match(/\bgit\s+(?:-C\s+("[^"]+"|'[^']+'|[^\s;&|]+)\s+)?add\s+([^;&|]+)/)
-    if (m) {
-      const addDir = m[1] ? path.resolve(base, unquote(m[1])) : base
-      const args = m[2].trim().split(/\s+/).filter(a => !a.startsWith('-'))
-      for (const a of args) {
-        if (a === '.' || a === '-A' || a === '--all') {
-          // 全量暂存：扫 git status 候选文件
-          try {
-            const out = execSync('git status --porcelain 2>/dev/null', { cwd: addDir, encoding: 'utf8', timeout: 5000 })
-            for (const line of out.split('\n')) {
-              const f = line.slice(3).trim()
-              if (!f) continue
-              for (const p of PATTERNS) if (p.re.test(f)) block(p.why, f)
-            }
-          } catch (e) { /* 放行 */ }
-          allow()
-        }
-        for (const p of PATTERNS) if (p.re.test(a)) block(p.why, a)
+    // 按命令分隔符分段处理，正确跟踪每段内的 cd 与多个 git add / git commit
+    const segments = cmd.split(/\s*(?:&&|\|\||;)\s*/)
+    const addRe = new RegExp('\\bgit\\s+(?:-C\\s+' + ARG + '\\s+)?add\\s+(.+)')
+    const commitRe = new RegExp('\\bgit\\s+(?:-C\\s+' + ARG + '\\s+)?commit\\b')
+    const cdRe = new RegExp('^cd\\s+' + ARG + '$')
+    for (const seg of segments) {
+      const trimmed = seg.trim()
+      if (!trimmed) continue
+      const cdm = trimmed.match(cdRe)
+      if (cdm) {
+        base = path.resolve(base, unquote(cdm[1]))
+        continue
       }
-    }
-    // git commit 时扫已暂存文件
-    const cm = cmd.match(/\bgit\s+(?:-C\s+("[^"]+"|'[^']+'|[^\s;&|]+)\s+)?commit\b/)
-    if (cm) {
-      const commitDir = cm[1] ? path.resolve(base, unquote(cm[1])) : base
-      try {
-        const out = execSync('git diff --cached --name-only 2>/dev/null', { cwd: commitDir, encoding: 'utf8', timeout: 5000 })
-        for (const f of out.split('\n').filter(Boolean)) {
-          for (const p of PATTERNS) if (p.re.test(f)) block(p.why, f)
+      const am = trimmed.match(addRe)
+      if (am) {
+        const addDir = am[1] ? path.resolve(base, unquote(am[1])) : base
+        const args = (am[2].match(/"[^"]+"|'[^']+'|\S+/g) || []).map(unquote).filter(a => a && !a.startsWith('-'))
+        for (const a of args) {
+          if (a === '.' || a === '-A' || a === '--all') {
+            try {
+              const out = execSync('git -c core.quotepath=false status --porcelain 2>/dev/null', { cwd: addDir, encoding: 'utf8', timeout: 5000 })
+              for (const line of out.split('\n')) {
+                const f = line.slice(3).trim()
+                if (!f) continue
+                for (const p of PATTERNS) if (p.re.test(f)) return block(p.why, f)
+              }
+            } catch (e) { /* 放行 */ }
+            continue
+          }
+          for (const p of PATTERNS) if (p.re.test(a)) return block(p.why, a)
         }
-      } catch (e) { /* 放行 */ }
+      }
+      const cm = trimmed.match(commitRe)
+      if (cm) {
+        const commitDir = cm[1] ? path.resolve(base, unquote(cm[1])) : base
+        try {
+          const out = execSync('git -c core.quotepath=false diff --cached --name-only 2>/dev/null', { cwd: commitDir, encoding: 'utf8', timeout: 5000 })
+          for (const f of out.split('\n').filter(Boolean)) {
+            for (const p of PATTERNS) if (p.re.test(f)) return block(p.why, f)
+          }
+        } catch (e) { /* 放行 */ }
+      }
     }
   } catch (e) { /* 静默放行 */ }
   allow()

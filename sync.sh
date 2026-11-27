@@ -41,7 +41,11 @@ do_codex() {
 do_antigravity() {
   local target="$HOME/.gemini/config/plugins/agent-rules"
   mkdir -p "$HOME/.gemini/config/plugins"
-  rm -rf "$target"
+  if [ -e "$target" ] && [ ! -L "$target" ]; then
+    echo "[antigravity] 错误：目标已存在且不是软链（$target），为避免覆盖本地插件目录已中止；请先手动备份或卸载后再同步。" >&2
+    return 1
+  fi
+  rm -f "$target"
   ln -s "$REPO_ROOT" "$target"
   echo "[antigravity] 已软链全局插件: $target -> $REPO_ROOT"
 }
