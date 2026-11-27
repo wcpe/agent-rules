@@ -1,0 +1,14 @@
+{
+  "$schema": "https://antigravity.google/schemas/v1/plugin.json",
+  "name": "agent-rules",
+  "displayName": "Agent Rules",
+  "version": "1.0.0",
+  "description": "通用开发规则（跨仓库）：git 提交规范、PR 工作流、PR 生命周期、禁止入库清单、测试断言纪律、证据纪律、批量操作红线、文档同步。rules/ 目录 always_on 注入，附禁止入库提交门 hook。",
+  "author": {
+    "name": "wcpe",
+    "url": "https://github.com/wcpe"
+  },
+  "homepage": "https://github.com/wcpe/agent-rules",
+  "repository": "https://github.com/wcpe/agent-rules",
+  "keywords": ["rules", "git", "pr", "testing", "evidence"]
+}

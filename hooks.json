@@ -1,0 +1,17 @@
+{
+  "agent-rules-forbidden-files": {
+    "enabled": true,
+    "PreToolUse": [
+      {
+        "matcher": "run_command",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh ./hooks/run-hook.sh --host antigravity guard-forbidden-files.js",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

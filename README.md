@@ -1,6 +1,6 @@
 # agent-rules
 
-通用开发规则真源仓——约束所有 AI agent（Devin / Claude Code / Codex）在所有仓库中的工作方式。插件市场索引在 wcpe/plugin-marketplaces，本仓只做规则。
+通用开发规则真源仓——约束所有 AI agent（Devin / Claude Code / Codex / Antigravity）在所有仓库中的工作方式。插件市场索引在 wcpe/plugin-marketplaces，本仓只做规则。
 
 ## 本仓治理
 
@@ -12,7 +12,7 @@
 
 - **单一真源**：规则只在这里维护，各 agent 端是分发目标不是副本
 - **一文件一主题**：每条规则独立成文，agent 按需加载
-- **三端同源**：Devin / Claude Code / Codex 消费的是同一份规则
+- **四端同源**：Devin / Claude Code / Codex / Antigravity 消费的是同一份规则
 
 ## 规则清单（rules/）
 
@@ -27,8 +27,26 @@
 | evidence-discipline.md | 验收证据形态（分段+标注+直展）、证据不入库、可复跑自动化 |
 | batch-operation-scope.md | 跨仓批量操作范围红线（先列清单确认/fork+公开仓默认不入/事故冻结上报） |
 | doc-sync.md | 文档演进（PRD/ARCHITECTURE/ADR）、防漂移、注释语言 |
+| implementation-discipline.md | 复用优先实现纪律 |
+| no-reflection-java-kotlin.md | Java/Kotlin 禁反射规则 |
 
-## 三端安装
+## 四端安装
+
+### Antigravity
+
+原生插件清单位于 `.antigravity-plugin/plugin.json`，自动加载全部 `rules/*.md`（带 `trigger: always_on` frontmatter）与根目录 `hooks.json`（禁止入库提交门，拦截 `run_command` 里的 `git add` / `git commit`）。
+
+```bash
+agy plugin install https://github.com/wcpe/agent-rules
+agy plugin list
+```
+
+也可本地克隆后用同步脚本软链至全局插件目录（`git pull` 即刻生效）：
+
+```bash
+git clone <本仓> ~/agent-rules
+bash ~/agent-rules/sync.sh --antigravity   # 软链到 ~/.gemini/config/plugins/agent-rules
+```
 
 ### Devin
 
@@ -62,9 +80,12 @@ bash ~/agent-rules/sync.sh --codex
 ## 目录结构
 
 ```
-├── rules/                  # 规则真源（Devin 插件规则层 / Claude 同步源 / Codex 引用源）
-├── sync.sh                 # 一键同步脚本（--claude / --codex / --all）
-└── adapters/               # 三端适配详细说明
+├── .antigravity-plugin/    # Antigravity 插件清单
+├── hooks.json              # Antigravity 提交门 hook（匹配 run_command）
+├── rules/                  # 规则真源（带 trigger: always_on frontmatter，四端共用）
+├── sync.sh                 # 一键同步脚本（--claude / --codex / --antigravity / --all）
+└── adapters/               # 各端适配详细说明
+    ├── antigravity/
     ├── claude/
     ├── codex/
     └── devin/

@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# agent-rules 一键同步：把通用规则分发到三端本地消费点
-# 用法: bash sync.sh [--claude] [--codex] [--all]
+# agent-rules 一键同步：把通用规则分发到各端本地消费点
+# 用法: bash sync.sh [--claude] [--codex] [--antigravity] [--all]
 set -euo pipefail
-RULES_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/rules"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+RULES_DIR="$REPO_ROOT/rules"
 
 do_claude() {
   local target="$HOME/.claude/rules/agent-rules"
@@ -37,9 +38,18 @@ do_codex() {
   echo "[codex] 已嵌入 AGENTS.md: $target（注意 32KiB 上限，超限需精简）"
 }
 
+do_antigravity() {
+  local target="$HOME/.gemini/config/plugins/agent-rules"
+  mkdir -p "$HOME/.gemini/config/plugins"
+  rm -rf "$target"
+  ln -s "$REPO_ROOT" "$target"
+  echo "[antigravity] 已软链全局插件: $target -> $REPO_ROOT"
+}
+
 case "${1:---all}" in
   --claude) do_claude ;;
   --codex) do_codex ;;
-  --all) do_claude; do_codex ;;
-  *) echo "用法: bash sync.sh [--claude|--codex|--all]"; exit 1 ;;
+  --antigravity) do_antigravity ;;
+  --all) do_claude; do_codex; do_antigravity ;;
+  *) echo "用法: bash sync.sh [--claude|--codex|--antigravity|--all]"; exit 1 ;;
 esac
